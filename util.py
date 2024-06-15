@@ -134,13 +134,13 @@ def run_stage(stage, rank, world_size, imgs):
     # Run the pipeline with input `x`. Divide the batch into 4 micro-batches
     # and run them in parallel on the pipeline
     if rank == 0:
-        stage(imgs)
-    elif rank == world_size - 1:
-        output = stage()
-    else:
-        stage()
+        return stage(imgs)
+    # elif rank == world_size - 1:
+    #     output = stage()
+    # else:
+    #     stage()
     
-    return output
+    return stage()
 
 
 # TODO: Run the stage of each rank with profiler enable

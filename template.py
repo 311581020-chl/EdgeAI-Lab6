@@ -33,7 +33,7 @@ from torch.utils.data.distributed import DistributedSampler
 
 
 
-# parallel-scp -h ~/host.txt -r ~/<code dir> ~/
+# parallel-scp -h ~/host.txt -r ~/lab6_chl ~/
 # torchrun   --nnodes=4   --nproc-per-node=1   --node-rank=0   --master-addr=192.168.1.xxx   --master-port=50000   template.py
 # torchrun   --nnodes=4   --nproc-per-node=1   --node-rank=0   --master-addr=192.168.1.118   --master-port=50000   template.py
 
@@ -72,8 +72,8 @@ def main():
     # print("torch.distributed.is_available:", torch.distributed.is_available())
 
     # Initialize distributed environment
-    os.environ["MASTER_ADDR"] = args.master_addr
-    os.environ["MASTER_PORT"] = args.master_port
+    # os.environ["MASTER_ADDR"] = args.master_addr
+    # os.environ["MASTER_PORT"] = args.master_port
     dist.init_process_group(rank=rank, world_size=world_size)
     # print("torch.distributed.is_initialized:", torch.distributed.is_initialized())
     
@@ -108,23 +108,26 @@ def main():
 
 
     model = torch.load('0.9099_deit3_small_patch16_224.pth', map_location='cpu')
+    model = model.to(DEVICE)
     model.eval()
     
-    annotate_split_points(model, {'layer0': SplitPoint.END,
-                                'layer1': SplitPoint.END})
+    # annotate_split_points(model, {'layer0': SplitPoint.END,
+    #                             'layer1': SplitPoint.END})
+    annotate_split_points(model, {f"blocks.{(i + 1) * 3}": PipeSplitWrapper.SplitPoint.BEGINNING for i in range(3)})
 
-    batch_size = 32
+    batch_size = one_batch_images.size(0)
     # in_dim = (3, 32, 32)
     # example_input = torch.randn(batch_size, in_dim, device=DEVICE)
-    chunks = 4
+    # chunks = 4
 
-    pipe = pipeline(model, chunks, example_args=(one_batch_images,))
+    # pipe = pipeline(model, chunks, example_args=(one_batch_images,))
+    pipe = Pipe.from_tracing(model, NUM_CHUNKS, example_args=(one_batch_images,))
     print("pipe", pipe)
 
     # Pipeline stage is our main pipeline runtime. It takes in the pipe object,
     # the rank of this process, and the device.
     stage = PipelineStage(pipe, rank, DEVICE)
-    run_stage(stage, rank, world_size, one_batch_images)
+    # run_stage(stage, rank, world_size, one_batch_images)
     
     
 
@@ -204,7 +207,7 @@ def main():
 
     # TODO: destroy process group
     ############### YOUR CODE STARTS HERE #################
-    dist.destroy_process_group( )
+    dist.destroy_process_group()
     #######################################################    
    
 
